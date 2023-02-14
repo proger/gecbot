@@ -277,20 +277,24 @@ while True:
                 }
             )
         if not math.isnan(losses["val"]):
-            if losses["val"] < best_val_loss or always_save_checkpoint:
+            best_val_loss = losses["val"]
+            raw_model = model.module if ddp else model
+            checkpoint = {
+                "model": raw_model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "model_args": model_args,
+                "iter_num": iter_num,
+                "best_val_loss": best_val_loss,
+                "val_loss": losses['val'],
+                "config": config,
+            }
+            if losses['val'] < best_val_loss:
                 best_val_loss = losses["val"]
-                raw_model = model.module if ddp else model
+                checkpoint["best_val_loss"] = best_val_loss
                 if iter_num > 0:
-                    checkpoint = {
-                        "model": raw_model.state_dict(),
-                        "optimizer": optimizer.state_dict(),
-                        "model_args": model_args,
-                        "iter_num": iter_num,
-                        "best_val_loss": best_val_loss,
-                        "config": config,
-                    }
-                    print(f"saving checkpoint to {ckpt_path}")
-                    torch.save(checkpoint, str(ckpt_path))
+                    torch.save(checkpoint, ckpt_path)
+            if always_save_checkpoint:
+                torch.save(checkpoint, ckpt_path.with_suffix(".last.pt"))
         else:
             print("NaN loss detected")
             break
